@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Como o CertForge Funciona</title>
+<meta name="description" content="Explicação animada, em português, de como o CertForge emite certificados de cliente para Oracle e Azure SQL.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  /* ---------- Tokens: cromo da página (adapta ao tema) ---------- */
+  :root{
+    --page-bg:#eef1f7; --page-ink:#131828; --page-muted:#5a6478;
+    --page-panel:#ffffff; --page-line:#dfe4ee;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --page-bg:#070a12; --page-ink:#eaeefb; --page-muted:#8b95ad;
+      --page-panel:#0f1420; --page-line:#1e2636;
+    }
+  }
+  :root[data-theme="dark"]{
+    --page-bg:#070a12; --page-ink:#eaeefb; --page-muted:#8b95ad;
+    --page-panel:#0f1420; --page-line:#1e2636;
+  }
+  /* ---------- Tokens: o "palco" é uma tela de cinema — mundo único, sempre escuro ---------- */
+  :root{
+    --ink:#e9edfb; --dim:#9aa6c2; --faint:#5f6b86;
+    --stage:#0a0e18; --stage2:#0e1424; --stageline:#1c2740;
+    --blue:#4f8cff; --blue-soft:#2a3a63;
+    --violet:#a279ff; --violet-soft:#33285c;
+    --amber:#ffb020; --amber-soft:#4a3410;
+    --ok:#34d399; --bad:#fb6a5d;
+    --steel:#7f8db0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--page-bg); color:var(--page-ink);
+    font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column; align-items:center;
+    padding:28px 18px 48px; min-height:100vh;
+  }
+  .top{width:100%;max-width:1000px;display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:"Sora",sans-serif;font-weight:800;letter-spacing:-.01em}
+  .brand .mk{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--blue),var(--violet));font-size:16px}
+  .brand small{font-family:"IBM Plex Mono",monospace;font-weight:500;color:var(--page-muted);font-size:12px}
+  .top .sep{flex:1}
+  .top a{color:var(--page-muted);text-decoration:none;font-size:13px;border:1px solid var(--page-line);
+    padding:6px 12px;border-radius:8px;background:var(--page-panel)}
+  .top a:hover{color:var(--page-ink)}
+
+  /* ---------- Palco 16:9 ---------- */
+  .player{width:100%;max-width:1000px}
+  .stage{
+    position:relative;width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 50% -20%, rgba(79,140,255,.16), transparent 60%),
+      radial-gradient(90% 70% at 110% 120%, rgba(162,121,255,.14), transparent 55%),
+      linear-gradient(180deg,var(--stage2),var(--stage));
+    border:1px solid var(--stageline); color:var(--ink);
+    box-shadow:0 30px 80px -30px rgba(0,0,0,.7);
+  }
+  .stage::after{ /* grão sutil + vinheta */
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(130% 120% at 50% 50%, transparent 62%, rgba(0,0,0,.45));
+  }
+  .scene{
+    position:absolute;inset:0;display:none;
+    grid-template-rows:auto 1fr auto;padding:26px 30px;gap:8px;
+  }
+  .scene.active{display:grid;animation:sceneIn .55s ease both}
+  @keyframes sceneIn{from{opacity:0}to{opacity:1}}
+
+  .scene .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blue)}
+  .scene h2{font-family:"Sora",sans-serif;font-weight:800;letter-spacing:-.02em;
+    margin:2px 0 0;font-size:clamp(20px,3.4vw,34px);text-wrap:balance;max-width:22ch}
+  .viz{align-self:center;justify-self:center;width:100%;height:100%;
+    display:grid;place-items:center;min-height:0}
+  .viz svg{max-width:100%;max-height:100%;height:auto}
+
+  /* legenda / narração */
+  .cap{align-self:end;font-size:clamp(13px,1.7vw,16px);color:var(--dim);
+    max-width:70ch;background:rgba(6,10,20,.5);border:1px solid var(--stageline);
+    border-radius:10px;padding:10px 14px;backdrop-filter:blur(3px)}
+  .cap b{color:var(--ink);font-weight:600}
+  .cap .hot{color:var(--amber)} .cap .gd{color:var(--ok)} .cap .bd{color:var(--bad)}
+
+  .badge-scene{position:absolute;top:22px;right:26px;font-family:"IBM Plex Mono",monospace;
+    font-size:12px;color:var(--faint)}
+
+  /* ---------- Controles ---------- */
+  .controls{width:100%;max-width:1000px;margin-top:14px;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .timeline{flex:1;min-width:220px;height:8px;border-radius:99px;background:var(--page-line);
+    position:relative;cursor:pointer;overflow:hidden}
+  .timeline .fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:99px;
+    background:linear-gradient(90deg,var(--blue),var(--violet))}
+  .btn{appearance:none;border:1px solid var(--page-line);background:var(--page-panel);
+    color:var(--page-ink);border-radius:10px;padding:9px 13px;font-size:14px;cursor:pointer;
+    font-family:inherit;display:inline-flex;align-items:center;gap:7px;transition:transform .12s,border-color .12s}
+  .btn:hover{border-color:var(--blue)} .btn:active{transform:scale(.96)}
+  .btn.primary{background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;border:0;font-weight:600}
+  .btn[aria-pressed="true"]{border-color:var(--violet);color:var(--violet)}
+  .time{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--page-muted);min-width:46px;text-align:center}
+  .dots{width:100%;max-width:1000px;margin-top:12px;display:flex;gap:6px;flex-wrap:wrap}
+  .dots button{flex:1;min-width:22px;height:6px;border:0;border-radius:99px;background:var(--page-line);cursor:pointer;padding:0}
+  .dots button.on{background:var(--blue)} .dots button.done{background:var(--violet)}
+  .foot{max-width:1000px;width:100%;margin-top:20px;color:var(--page-muted);font-size:13px;
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    border-top:1px solid var(--page-line);padding-top:14px}
+  .foot b{color:var(--page-ink)}
+
+  /* ---------- Peças de diagrama reutilizáveis ---------- */
+  .node{fill:var(--stage2);stroke:var(--stageline);stroke-width:1.5}
+  .lab{fill:var(--ink);font-family:"Sora",sans-serif;font-weight:700}
+  .sub{fill:var(--dim);font-family:"IBM Plex Mono",monospace}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  .wire{stroke:var(--stageline);stroke-width:2;fill:none}
+
+  /* utilidades de animação por cena (rodam quando .scene fica .active) */
+  .pop{opacity:0;transform:translateY(10px)}
+  .active .pop{animation:pop .6s ease forwards}
+  @keyframes pop{to{opacity:1;transform:none}}
+  .draw{opacity:0}
+  .active .draw{animation:drawFade .7s ease forwards}
+  @keyframes drawFade{to{opacity:1}}
+  .flow{opacity:0}
+  .active .flow{animation:flow 1.1s ease infinite}
+  @keyframes flow{0%{opacity:0;transform:translateX(-6px)}30%{opacity:1}70%{opacity:1}100%{opacity:0;transform:translateX(6px)}}
+  .glow{filter:drop-shadow(0 0 10px currentColor)}
+  /* delays por último, para vencer o animation-delay embutido no shorthand acima */
+  .active .d1{animation-delay:.15s}.active .d2{animation-delay:.45s}
+  .active .d3{animation-delay:.8s}.active .d4{animation-delay:1.15s}
+  .active .d5{animation-delay:1.5s}.active .d6{animation-delay:1.9s}
+
+  @media (prefers-reduced-motion: reduce){
+    .scene.active,.active .pop,.active .draw,.active .flow{animation:none!important}
+    .pop,.draw,.flow{opacity:1;transform:none}
+  }
+  @media (max-width:560px){
+    .scene{padding:18px 16px}
+    .cap{font-size:12.5px;padding:8px 10px}
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="brand"><span class="mk">🔐</span> CertForge <small>· vídeo explicativo</small></div>
+  <span class="sep"></span>
+  <a href="./index.html">Documentação</a>
+  <a href="https://github.com/elevbit-ai/certforge">GitHub</a>
+</div>
+
+<div class="player">
+  <div class="stage" id="stage" aria-live="polite">
+    <div class="badge-scene mono" id="badge">01 / 12</div>
+
+    <!-- ============ CENA 1 — CAPA ============ -->
+    <section class="scene" data-cap="O CertForge é uma fábrica de certificados digitais. Em pouco mais de dois minutos, você vai entender como ele deixa que apenas quem tem o certificado certo se conecte ao seu banco Oracle ou Azure SQL.">
+      <div><div class="eyebrow">Autenticação por certificado</div><h2>Como o CertForge funciona</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 300" role="img" aria-label="Emblema CertForge">
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#a279ff"/></linearGradient></defs>
+          <g class="pop d1">
+            <rect x="250" y="70" width="140" height="150" rx="18" fill="url(#g1)" opacity=".16"/>
+            <path d="M320 96 a34 34 0 0 1 34 34 v20 h-16 v-20 a18 18 0 0 0-36 0 v20 h-16 v-20 a34 34 0 0 1 34-34z" fill="var(--blue)"/>
+            <rect x="286" y="148" width="68" height="60" rx="10" fill="url(#g1)"/>
+            <circle cx="320" cy="172" r="8" fill="#0a0e18"/><rect x="316" y="176" width="8" height="18" rx="4" fill="#0a0e18"/>
+          </g>
+          <text x="320" y="258" text-anchor="middle" class="sub pop d2" font-size="14">PKI · mTLS · Oracle · Azure SQL</text>
+        </svg>
+      </div>
+      <div class="cap" id="cap"></div>
+    </section>
+
+    <!-- ============ CENA 2 — O PROBLEMA ============ -->
+    <section class="scene" data-cap="O objetivo: sem o certificado, a conexão não acontece. Um cliente sem credencial é <b class='bd'>recusado</b>; só quem apresenta o certificado emitido pela sua autoridade <b class='gd'>entra</b>.">
+      <div><div class="eyebrow">O objetivo</div><h2>Só entra quem tem o certificado</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 280">
+          <!-- banco -->
+          <g class="pop d1">
+            <ellipse cx="500" cy="80" rx="60" ry="18" class="node"/>
+            <path d="M440 80 v120 a60 18 0 0 0 120 0 v-120" class="node"/>
+            <ellipse cx="500" cy="140" rx="60" ry="18" fill="none" stroke="var(--stageline)"/>
+            <ellipse cx="500" cy="200" rx="60" ry="18" fill="none" stroke="var(--stageline)"/>
+            <text x="500" y="250" text-anchor="middle" class="sub" font-size="13">Banco de dados</text>
+          </g>
+          <!-- cliente sem cert -->
+          <g class="pop d2">
+            <rect x="40" y="52" width="150" height="52" rx="10" class="node"/>
+            <text x="115" y="76" text-anchor="middle" class="lab" font-size="14">Cliente</text>
+            <text x="115" y="94" text-anchor="middle" class="sub" font-size="11">sem certificado</text>
+            <line x1="196" y1="78" x2="360" y2="78" stroke="var(--bad)" stroke-width="2" stroke-dasharray="6 6"/>
+            <text x="330" y="66" text-anchor="middle" class="bd" fill="var(--bad)" font-size="22" font-weight="700">✕</text>
+          </g>
+          <!-- cliente com cert -->
+          <g class="pop d3">
+            <rect x="40" y="176" width="150" height="52" rx="10" class="node" stroke="var(--ok)"/>
+            <text x="115" y="200" text-anchor="middle" class="lab" font-size="14">Cliente</text>
+            <text x="115" y="218" text-anchor="middle" class="sub" font-size="11" fill="var(--ok)">com certificado</text>
+            <line x1="196" y1="202" x2="436" y2="188" stroke="var(--ok)" stroke-width="2.5"/>
+            <text x="330" y="176" text-anchor="middle" class="gd" fill="var(--ok)" font-size="22" font-weight="700">✓</text>
+          </g>
+        </svg>
+      </div>
+      <div class="cap" id=""></div>
+    </section>
+
+    <!-- ============ CENA 3 — PÚBLICO x PRIVADO ============ -->
+    <section class="scene" data-cap="Um par de chaves tem duas metades. O <b>certificado</b> é a parte <b class='gd'>pública</b> — pode ser distribuída. A <b>chave privada</b> é o <b class='bd'>segredo</b> que nunca sai com você. Quem tem a chave, prova a identidade.">
+      <div><div class="eyebrow">O conceito</div><h2>Certificado público, chave privada</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 260">
+          <g class="pop d1">
+            <rect x="70" y="60" width="220" height="140" rx="14" class="node" stroke="var(--ok)"/>
+            <text x="180" y="92" text-anchor="middle" class="lab" font-size="15" fill="var(--ok)">Certificado</text>
+            <text x="180" y="114" text-anchor="middle" class="sub" font-size="12">.cer / .pem</text>
+            <text x="180" y="150" text-anchor="middle" class="sub" font-size="12">pode ser</text>
+            <text x="180" y="170" text-anchor="middle" class="lab" font-size="14" fill="var(--ok)">DISTRIBUÍDO</text>
+          </g>
+          <g class="pop d3">
+            <rect x="350" y="60" width="220" height="140" rx="14" class="node" stroke="var(--bad)"/>
+            <text x="460" y="92" text-anchor="middle" class="lab" font-size="15" fill="var(--bad)">Chave privada</text>
+            <text x="460" y="114" text-anchor="middle" class="sub" font-size="12">.key (protegida)</text>
+            <text x="460" y="150" text-anchor="middle" class="sub" font-size="12">jamais</text>
+            <text x="460" y="170" text-anchor="middle" class="lab" font-size="14" fill="var(--bad)">COMPARTILHADA</text>
+          </g>
+          <text x="320" y="235" text-anchor="middle" class="sub pop d5" font-size="12">o servidor confia na CA que assinou o certificado</text>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 4 — HANDSHAKE mTLS ============ -->
+    <section class="scene" data-cap="Na conexão, o servidor exige um certificado. O cliente o apresenta e prova ter a chave privada. O servidor verifica: foi assinado pela minha CA? Não está revogado? Só então a conexão é <b class='gd'>aceita</b> — antes mesmo de usuário e senha.">
+      <div><div class="eyebrow">O aperto de mãos (mTLS)</div><h2>Como a conexão é validada</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 260">
+          <rect x="30" y="40" width="150" height="60" rx="10" class="node"/>
+          <text x="105" y="76" text-anchor="middle" class="lab" font-size="14">Cliente</text>
+          <rect x="460" y="40" width="150" height="60" rx="10" class="node"/>
+          <text x="535" y="76" text-anchor="middle" class="lab" font-size="14">Servidor</text>
+          <!-- setas -->
+          <g font-size="11" class="sub">
+            <g class="flow d1"><line x1="180" y1="120" x2="460" y2="120" class="wire" stroke="var(--blue)"/><text x="320" y="114" text-anchor="middle">1 · quero conectar →</text></g>
+            <g class="flow d2"><line x1="460" y1="150" x2="180" y2="150" class="wire" stroke="var(--violet)"/><text x="320" y="144" text-anchor="middle">← 2 · me mostre o certificado</text></g>
+            <g class="flow d3"><line x1="180" y1="180" x2="460" y2="180" class="wire" stroke="var(--blue)"/><text x="320" y="174" text-anchor="middle">3 · certificado + prova da chave →</text></g>
+            <g class="flow d4"><line x1="460" y1="210" x2="180" y2="210" class="wire" stroke="var(--ok)"/><text x="320" y="204" text-anchor="middle" fill="var(--ok)">← 4 · verificado ✓ conexão aceita</text></g>
+          </g>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 5 — HIERARQUIA ============ -->
+    <section class="scene" data-cap="O CertForge monta uma autoridade de <b>dois níveis</b>. A <b class='hot'>raiz</b> assina só a intermediária e depois fica <b class='hot'>offline</b>. A <b>intermediária</b> emissora cuida do dia a dia: assina os clientes e publica a lista de revogação.">
+      <div><div class="eyebrow">A hierarquia</div><h2>Raiz offline + emissora</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 270">
+          <g class="pop d1">
+            <rect x="250" y="18" width="140" height="52" rx="12" class="node" stroke="var(--amber)"/>
+            <text x="320" y="40" text-anchor="middle" class="lab" font-size="14" fill="var(--amber)">CA Raiz</text>
+            <text x="320" y="58" text-anchor="middle" class="sub" font-size="11">OFFLINE 🔒</text>
+          </g>
+          <line x1="320" y1="70" x2="320" y2="108" class="wire draw d2" stroke="var(--amber)"/>
+          <g class="pop d3">
+            <rect x="240" y="108" width="160" height="52" rx="12" class="node" stroke="var(--blue)"/>
+            <text x="320" y="130" text-anchor="middle" class="lab" font-size="14" fill="var(--blue)">CA Intermediária</text>
+            <text x="320" y="148" text-anchor="middle" class="sub" font-size="11">emissora + CRL</text>
+          </g>
+          <line x1="320" y1="160" x2="150" y2="205" class="wire draw d4"/>
+          <line x1="320" y1="160" x2="320" y2="205" class="wire draw d4"/>
+          <line x1="320" y1="160" x2="490" y2="205" class="wire draw d4"/>
+          <g class="pop d5" font-size="11">
+            <rect x="90" y="205" width="120" height="46" rx="10" class="node"/><text x="150" y="233" text-anchor="middle" class="sub">cliente Oracle</text>
+            <rect x="260" y="205" width="120" height="46" rx="10" class="node"/><text x="320" y="233" text-anchor="middle" class="sub">cliente Azure</text>
+            <rect x="430" y="205" width="120" height="46" rx="10" class="node"/><text x="490" y="233" text-anchor="middle" class="sub">cliente …</text>
+          </g>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 6 — EMISSÃO ============ -->
+    <section class="scene" data-cap="Emitir é uma linha de montagem: gera-se a <b>chave</b> do cliente, monta-se o <b>pedido (CSR)</b>, a emissora <b class='hot'>assina</b> e tudo é empacotado em <b>.p12</b> (para apps) e <b>.cer</b> (para o Azure).">
+      <div><div class="eyebrow">A emissão</div><h2>Da chave ao pacote pronto</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 220">
+          <g font-size="12">
+            <g class="pop d1"><rect x="20" y="80" width="120" height="60" rx="12" class="node"/><text x="80" y="108" text-anchor="middle" class="lab" font-size="13">Chave</text><text x="80" y="126" text-anchor="middle" class="sub" font-size="10">RSA-3072</text></g>
+            <path d="M144 110 h40" class="wire flow d2" stroke="var(--blue)" marker-end=""/>
+            <g class="pop d2"><rect x="188" y="80" width="120" height="60" rx="12" class="node"/><text x="248" y="108" text-anchor="middle" class="lab" font-size="13">CSR</text><text x="248" y="126" text-anchor="middle" class="sub" font-size="10">pedido</text></g>
+            <path d="M312 110 h40" class="wire flow d3" stroke="var(--blue)"/>
+            <g class="pop d3"><rect x="356" y="80" width="120" height="60" rx="12" class="node" stroke="var(--amber)"/><text x="416" y="108" text-anchor="middle" class="lab" font-size="13" fill="var(--amber)">Assinatura</text><text x="416" y="126" text-anchor="middle" class="sub" font-size="10">pela emissora</text></g>
+            <path d="M480 110 h40" class="wire flow d4" stroke="var(--violet)"/>
+            <g class="pop d4"><rect x="524" y="80" width="100" height="60" rx="12" class="node" stroke="var(--ok)"/><text x="574" y="105" text-anchor="middle" class="lab" font-size="12" fill="var(--ok)">.p12</text><text x="574" y="126" text-anchor="middle" class="lab" font-size="12" fill="var(--ok)">.cer</text></g>
+          </g>
+          <text x="320" y="185" text-anchor="middle" class="sub pop d5" font-size="12">EKU = clientAuth · SAN com e-mail/UPN · validade curta (90 dias)</text>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 7 — ORACLE ============ -->
+    <section class="scene" data-cap="Para o <b>Oracle</b>, o CertForge monta a <b>Oracle Wallet</b> e os arquivos <span class='mono'>sqlnet.ora</span> e <span class='mono'>tnsnames.ora</span>. A conexão usa <b>TCPS</b> — Oracle Net sobre TLS — exigindo o certificado do cliente.">
+      <div><div class="eyebrow">Alvo 1</div><h2>Oracle Database via TCPS</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 240">
+          <g class="pop d1">
+            <rect x="60" y="70" width="170" height="100" rx="12" class="node"/>
+            <text x="145" y="100" text-anchor="middle" class="lab" font-size="14">Oracle Wallet</text>
+            <text x="145" y="122" text-anchor="middle" class="sub" font-size="11">cert + chave</text>
+            <text x="145" y="150" text-anchor="middle" class="sub" font-size="10">sqlnet.ora · tnsnames.ora</text>
+          </g>
+          <g class="flow d2"><line x1="230" y1="120" x2="410" y2="120" class="wire" stroke="var(--blue)"/>
+            <text x="320" y="110" text-anchor="middle" class="sub" font-size="12">TCPS · porta 2484 🔒</text></g>
+          <g class="pop d3">
+            <ellipse cx="500" cy="80" rx="55" ry="16" class="node"/>
+            <path d="M445 80 v90 a55 16 0 0 0 110 0 v-90" class="node"/>
+            <text x="500" y="200" text-anchor="middle" class="sub" font-size="12">Oracle Database</text>
+          </g>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 8 — AZURE ============ -->
+    <section class="scene" data-cap="Para o <b>Azure SQL</b>, o certificado vira a credencial de um <b>Service Principal</b> no <b>Microsoft Entra ID</b>. Você sobe o <span class='mono'>.cer</span> no registro do app; o cliente autentica com a chave privada e recebe um token.">
+      <div><div class="eyebrow">Alvo 2</div><h2>Azure SQL via Entra ID</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 240">
+          <g class="pop d1">
+            <rect x="50" y="90" width="150" height="60" rx="12" class="node"/>
+            <text x="125" y="118" text-anchor="middle" class="lab" font-size="13">Certificado</text>
+            <text x="125" y="136" text-anchor="middle" class="sub" font-size="10">.cer (público)</text>
+          </g>
+          <g class="flow d2"><line x1="200" y1="120" x2="370" y2="120" class="wire" stroke="var(--violet)"/>
+            <text x="285" y="110" text-anchor="middle" class="sub" font-size="11">upload no App</text></g>
+          <g class="pop d3">
+            <path d="M400 130 a26 26 0 0 1 4-51 a34 34 0 0 1 64 6 a24 24 0 0 1 -6 46 z" class="node" stroke="var(--blue)"/>
+            <text x="437" y="160" text-anchor="middle" class="lab" font-size="12" fill="var(--blue)">Entra ID</text>
+            <text x="437" y="177" text-anchor="middle" class="sub" font-size="10">Service Principal</text>
+          </g>
+          <g class="flow d4"><line x1="475" y1="110" x2="560" y2="110" class="wire" stroke="var(--ok)"/></g>
+          <g class="pop d5">
+            <ellipse cx="585" cy="80" rx="40" ry="12" class="node"/><path d="M545 80 v70 a40 12 0 0 0 80 0 v-70" class="node"/>
+            <text x="585" y="190" text-anchor="middle" class="sub" font-size="11">Azure SQL</text>
+          </g>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 9 — REVOGAÇÃO ============ -->
+    <section class="scene" data-cap="Vazou uma chave? Um funcionário saiu? O certificado é <b class='bd'>revogado</b> e entra na <b>CRL</b> — a lista de revogados assinada pela emissora. Cada certificado já aponta onde o servidor busca essa lista, e passa a recusar o revogado.">
+      <div><div class="eyebrow">Ciclo de vida</div><h2>Revogação e CRL</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 240">
+          <g class="pop d1">
+            <rect x="60" y="70" width="150" height="100" rx="12" class="node" stroke="var(--bad)"/>
+            <text x="135" y="105" text-anchor="middle" class="lab" font-size="13">Certificado</text>
+            <text x="135" y="150" text-anchor="middle" class="lab" font-size="16" fill="var(--bad)" transform="rotate(-8 135 145)">REVOGADO</text>
+          </g>
+          <g class="flow d2"><line x1="210" y1="120" x2="380" y2="120" class="wire" stroke="var(--bad)"/></g>
+          <g class="pop d3">
+            <rect x="380" y="60" width="200" height="120" rx="12" class="node"/>
+            <text x="480" y="86" text-anchor="middle" class="lab" font-size="13">CRL</text>
+            <line x1="400" y1="100" x2="560" y2="100" stroke="var(--stageline)"/>
+            <text x="410" y="122" class="mono sub" font-size="12">serial 1001 ✕</text>
+            <text x="410" y="144" class="mono sub" font-size="12">serial 1004 ✕</text>
+            <text x="410" y="166" class="sub" font-size="11">assinada pela emissora</text>
+          </g>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 10 — LEDGER ============ -->
+    <section class="scene" data-cap="Cada evento vira um bloco cujo hash inclui o hash do bloco anterior — uma corrente. Se alguém <b class='bd'>adultera</b> um registro no passado, todos os elos seguintes deixam de fechar, e o CertForge aponta exatamente a linha fraudada.">
+      <div><div class="eyebrow">Auditoria à prova de adulteração</div><h2>O ledger encadeado por hash</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 240">
+          <g font-size="10" class="mono">
+            <g class="pop d1"><rect x="30" y="90" width="120" height="70" rx="10" class="node"/><text x="90" y="112" text-anchor="middle" class="lab" font-size="12">emissão</text><text x="90" y="134" text-anchor="middle" class="sub">#a703…</text></g>
+            <path d="M150 125 h34" class="wire draw d2" stroke="var(--violet)"/>
+            <g class="pop d2"><rect x="184" y="90" width="120" height="70" rx="10" class="node"/><text x="244" y="112" text-anchor="middle" class="lab" font-size="12">emissão</text><text x="244" y="134" text-anchor="middle" class="sub">#8070…</text></g>
+            <path d="M304 125 h34" class="wire draw d3" stroke="var(--bad)"/>
+            <g class="pop d3"><rect x="338" y="90" width="120" height="70" rx="10" class="node" stroke="var(--bad)"/><text x="398" y="112" text-anchor="middle" class="lab" font-size="12" fill="var(--bad)">adulterado</text><text x="398" y="134" text-anchor="middle" class="sub" fill="var(--bad)">#b671…✕</text></g>
+            <path d="M458 125 h34" class="wire draw d4" stroke="var(--bad)" stroke-dasharray="5 5"/>
+            <g class="pop d4"><rect x="492" y="90" width="120" height="70" rx="10" class="node" stroke="var(--bad)"/><text x="552" y="112" text-anchor="middle" class="lab" font-size="12" fill="var(--bad)">elo rompido</text><text x="552" y="134" text-anchor="middle" class="sub" fill="var(--bad)">✕</text></g>
+          </g>
+          <text x="320" y="200" text-anchor="middle" class="sub pop d6" font-size="12">hash(bloco) = SHA-256( conteúdo + hash do bloco anterior )</text>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 11 — SEGURANÇA ============ -->
+    <section class="scene" data-cap="Camadas de defesa: a chave pode ser <b>selada ao TPM</b> e nunca sair do hardware; o uso é restrito a <b>clientAuth</b>; as chaves da CA ficam cifradas em <b>AES-256</b>; e a raiz permanece <b class='hot'>offline</b>.">
+      <div><div class="eyebrow">Defesa em camadas</div><h2>Recursos de segurança</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 220">
+          <g font-size="12">
+            <g class="pop d1"><rect x="40" y="50" width="260" height="55" rx="12" class="node" stroke="var(--blue)"/><text x="60" y="83" class="lab" font-size="14">🔒 Chave selada ao TPM</text></g>
+            <g class="pop d2"><rect x="340" y="50" width="260" height="55" rx="12" class="node" stroke="var(--violet)"/><text x="360" y="83" class="lab" font-size="14">🎯 Uso restrito: clientAuth</text></g>
+            <g class="pop d3"><rect x="40" y="120" width="260" height="55" rx="12" class="node" stroke="var(--ok)"/><text x="60" y="153" class="lab" font-size="14">🛡️ Chaves cifradas AES-256</text></g>
+            <g class="pop d4"><rect x="340" y="120" width="260" height="55" rx="12" class="node" stroke="var(--amber)"/><text x="360" y="153" class="lab" font-size="14">📴 Raiz offline (pathlen:0)</text></g>
+          </g>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+    <!-- ============ CENA 12 — ENCERRAMENTO ============ -->
+    <section class="scene" data-cap="É isso: crie a autoridade, emita os certificados e conecte com segurança. Três comandos para começar. Projeto aberto, de Joaquim Pedro de Morais Filho.">
+      <div><div class="eyebrow">Comece agora</div><h2>Três comandos</h2></div>
+      <div class="viz">
+        <svg viewBox="0 0 640 210">
+          <g class="mono" font-size="13">
+            <g class="pop d1"><rect x="70" y="30" width="500" height="40" rx="9" class="node"/><text x="90" y="55" fill="var(--ok)">pwsh ./scripts/install.ps1</text></g>
+            <g class="pop d2"><rect x="70" y="82" width="500" height="40" rx="9" class="node"/><text x="90" y="107" fill="var(--blue)">pwsh ./scripts/new-ca.ps1 -Store ./minha-pki</text></g>
+            <g class="pop d3"><rect x="70" y="134" width="500" height="40" rx="9" class="node"/><text x="90" y="159" fill="var(--violet)">pwsh ./scripts/issue-client.ps1 -Oracle …</text></g>
+          </g>
+        </svg>
+      </div>
+      <div class="cap"></div>
+    </section>
+
+  </div>
+
+  <!-- ---------- Controles ---------- -->
+  <div class="controls">
+    <button class="btn primary" id="play" aria-label="Reproduzir">▶ Reproduzir</button>
+    <button class="btn" id="prev" aria-label="Cena anterior">⏮</button>
+    <button class="btn" id="next" aria-label="Próxima cena">⏭</button>
+    <div class="timeline" id="timeline" role="progressbar" aria-label="Progresso da cena"><div class="fill" id="fill"></div></div>
+    <span class="time mono" id="time">0:00</span>
+    <button class="btn" id="narrate" aria-pressed="false" aria-label="Ativar narração por voz">🔊 Narrar</button>
+    <button class="btn" id="replay" aria-label="Recomeçar">↻</button>
+  </div>
+  <div class="dots" id="dots" aria-hidden="true"></div>
+
+  <div class="foot">
+    <span>Vídeo explicativo do <b>CertForge</b> · autenticação por certificado para Oracle & Azure SQL</span>
+    <span>Por <b>Joaquim Pedro de Morais Filho</b></span>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var scenes = Array.prototype.slice.call(document.querySelectorAll('.scene'));
+  var N = scenes.length;
+  var badge = document.getElementById('badge');
+  var capEl = null;
+  var fill = document.getElementById('fill');
+  var timeEl = document.getElementById('time');
+  var playBtn = document.getElementById('play');
+  var dotsWrap = document.getElementById('dots');
+  var narrateBtn = document.getElementById('narrate');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var idx = 0, playing = false, narrate = false;
+  var startTs = 0, elapsed = 0, raf = 0, curDur = 8000;
+
+  // duração por cena estimada a partir do texto da legenda
+  function words(s){ return (s.replace(/<[^>]+>/g,'').trim().split(/\s+/).length); }
+  var durations = scenes.map(function(s){
+    var w = words(s.getAttribute('data-cap')||'');
+    return Math.min(15000, Math.max(6500, w*370 + 2200));
+  });
+
+  // dots
+  scenes.forEach(function(_,i){
+    var b = document.createElement('button');
+    b.addEventListener('click', function(){ goto(i, playing); });
+    dotsWrap.appendChild(b);
+  });
+  var dotBtns = Array.prototype.slice.call(dotsWrap.children);
+
+  function fmt(ms){ var s=Math.max(0,Math.round(ms/1000)); return Math.floor(s/60)+':' + ('0'+(s%60)).slice(-2); }
+
+  function typeCaption(scene){
+    var cap = scene.querySelector('.cap');
+    var html = scene.getAttribute('data-cap')||'';
+    cap.innerHTML = html; // já formatado; fade natural pela troca de cena
+    return cap;
+  }
+
+  // narração por voz (pt-BR) via Web Speech API
+  var ptVoice = null;
+  function pickVoice(){
+    if(!('speechSynthesis' in window)) return;
+    var vs = speechSynthesis.getVoices();
+    ptVoice = vs.filter(function(v){return /pt(-|_)?BR/i.test(v.lang);})[0]
+           || vs.filter(function(v){return /^pt/i.test(v.lang);})[0] || null;
+  }
+  if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+  function speak(scene){
+    if(!narrate || !('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    var text = (scene.getAttribute('data-cap')||'').replace(/<[^>]+>/g,'');
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'pt-BR'; if(ptVoice) u.voice = ptVoice; u.rate = 1.02; u.pitch = 1.0;
+    speechSynthesis.speak(u);
+  }
+
+  function setActive(i){
+    scenes.forEach(function(s,j){ s.classList.toggle('active', j===i); });
+    dotBtns.forEach(function(b,j){ b.className = j<i?'done':(j===i?'on':''); });
+    badge.textContent = ('0'+(i+1)).slice(-2)+' / '+('0'+N).slice(-2);
+    typeCaption(scenes[i]);
+  }
+
+  function stopRaf(){ if(raf){ cancelAnimationFrame(raf); raf=0; } }
+
+  function tick(){
+    var now = performance.now();
+    var e = elapsed + (now - startTs);
+    var p = Math.min(1, e/curDur);
+    fill.style.width = (p*100)+'%';
+    timeEl.textContent = fmt(curDur - e);
+    if(p>=1){ stopRaf(); if(playing) next(); return; }
+    raf = requestAnimationFrame(tick);
+  }
+
+  function startTimer(){
+    stopRaf(); startTs = performance.now(); raf = requestAnimationFrame(tick);
+  }
+
+  function goto(i, autoplay){
+    idx = (i+N)%N;
+    curDur = durations[idx];
+    elapsed = 0; fill.style.width='0%'; timeEl.textContent = fmt(curDur);
+    setActive(idx);
+    if('speechSynthesis' in window) speechSynthesis.cancel();
+    if(autoplay && !reduce){ playing = true; updatePlayBtn(); speak(scenes[idx]); startTimer(); }
+    else { playing = playing && !reduce; }
+  }
+
+  function next(){ if(idx>=N-1){ pause(); return; } goto(idx+1, playing); }
+  function prev(){ goto(idx-1, playing); }
+
+  function play(){
+    if(reduce){ return; }
+    playing = true; updatePlayBtn();
+    if(idx>=N-1 && elapsed>=curDur){ goto(0,true); return; }
+    speak(scenes[idx]); startTimer();
+  }
+  function pause(){
+    playing = false; updatePlayBtn(); stopRaf();
+    elapsed += performance.now()-startTs;
+    if('speechSynthesis' in window) speechSynthesis.pause ? speechSynthesis.cancel() : null;
+  }
+  function updatePlayBtn(){ playBtn.textContent = playing ? '❚❚ Pausar' : '▶ Reproduzir'; }
+
+  playBtn.addEventListener('click', function(){ playing ? pause() : play(); });
+  document.getElementById('next').addEventListener('click', function(){ goto(idx+1<N?idx+1:idx, playing); });
+  document.getElementById('prev').addEventListener('click', prev);
+  document.getElementById('replay').addEventListener('click', function(){ goto(0,true); });
+  narrateBtn.addEventListener('click', function(){
+    narrate = !narrate; narrateBtn.setAttribute('aria-pressed', String(narrate));
+    narrateBtn.textContent = narrate ? '🔊 Narrando' : '🔇 Narrar';
+    if(narrate && playing) speak(scenes[idx]);
+    if(!narrate && 'speechSynthesis' in window) speechSynthesis.cancel();
+  });
+  document.getElementById('timeline').addEventListener('click', function(ev){
+    var r = this.getBoundingClientRect();
+    var p = (ev.clientX - r.left)/r.width;
+    elapsed = p*curDur; fill.style.width=(p*100)+'%';
+    if(playing){ startTimer(); }
+  });
+  document.addEventListener('keydown', function(ev){
+    if(ev.key===' '){ ev.preventDefault(); playing?pause():play(); }
+    else if(ev.key==='ArrowRight'){ next(); }
+    else if(ev.key==='ArrowLeft'){ prev(); }
+  });
+
+  // início
+  goto(0, false);
+  if('speechSynthesis' in window){ window.addEventListener('beforeunload', function(){ speechSynthesis.cancel(); }); }
+})();
+</script>
+</body>
+</html>
