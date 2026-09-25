@@ -1,0 +1,80 @@
+# =====================================================================
+#  CertForge — Configuração da Autoridade Certificadora INTERMEDIÁRIA
+#  Autor: Joaquim Pedro de Morais Filho <j360074@hotmail.com>
+#
+#  A CA Intermediária (emissora) assina os certificados de CLIENTE do
+#  dia a dia e publica a CRL. Diretório via $ENV::CERTFORGE_INT_DIR.
+# =====================================================================
+
+[ default ]
+ca                      = intermediate-ca
+
+[ ca ]
+default_ca              = CA_default
+
+[ CA_default ]
+dir                     = $ENV::CERTFORGE_INT_DIR
+certs                   = $dir/certs
+crl_dir                 = $dir/crl
+new_certs_dir           = $dir/newcerts
+database                = $dir/index.txt
+serial                  = $dir/serial
+RANDFILE                = $dir/private/.rand
+
+private_key             = $dir/private/intermediate-ca.key.pem
+certificate             = $dir/certs/intermediate-ca.cert.pem
+
+crlnumber               = $dir/crlnumber
+crl                     = $dir/crl/intermediate-ca.crl.pem
+crl_extensions          = crl_ext
+default_crl_days        = 30
+
+default_md              = sha384
+name_opt                = ca_default
+cert_opt                = ca_default
+default_days            = 90
+preserve                = no
+policy                  = policy_loose
+
+# A emissora aceita qualquer CN de cliente, mas exige organização coerente.
+[ policy_loose ]
+countryName             = optional
+stateOrProvinceName     = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+default_bits            = 4096
+distinguished_name      = req_distinguished_name
+string_mask             = utf8only
+default_md              = sha384
+prompt                  = no
+
+[ req_distinguished_name ]
+countryName             = $ENV::CERTFORGE_COUNTRY
+stateOrProvinceName     = $ENV::CERTFORGE_STATE
+organizationName        = $ENV::CERTFORGE_ORG
+organizationalUnitName  = $ENV::CERTFORGE_OU
+commonName              = $ENV::CERTFORGE_INT_CN
+
+# --- Perfil de CERTIFICADO DE CLIENTE (autenticação mútua TLS) ---
+# Uso restrito: só autenticação de cliente. Não serve para servidor,
+# não serve para assinar código, não serve para e-mail.
+[ client_cert ]
+basicConstraints        = CA:FALSE
+nsCertType              = client
+nsComment               = "CertForge Client Certificate"
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid,issuer
+keyUsage                = critical, nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage        = critical, clientAuth
+crlDistributionPoints   = @crl_dp
+subjectAltName          = $ENV::CERTFORGE_CLIENT_SAN
+
+[ crl_dp ]
+URI.0                   = $ENV::CERTFORGE_CRL_URI
+
+[ crl_ext ]
+authorityKeyIdentifier  = keyid:always

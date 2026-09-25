@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CertForge — Autoridade Certificadora para Oracle & Azure SQL</title>
+<meta name="description" content="Fábrica de certificados de cliente para autenticar conexões com Oracle Database e Azure SQL. Por Joaquim Pedro de Morais Filho.">
+<style>
+  :root{
+    --bg:#f7f8fb; --panel:#ffffff; --ink:#131722; --muted:#5b6472;
+    --brand:#2f6df6; --brand2:#7b3ff2; --line:#e5e8ef; --code:#f0f2f7;
+    --ok:#16a34a; --accent:#0b1220;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0c0f16; --panel:#141926; --ink:#eef1f7; --muted:#9aa4b6;
+      --brand:#5b8bff; --brand2:#a879ff; --line:#222a3a; --code:#0f1420;
+      --accent:#e9edf6;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6}
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header.hero{padding:72px 0 48px;text-align:center;
+    background:radial-gradient(1200px 400px at 50% -10%, color-mix(in srgb,var(--brand) 18%, transparent), transparent)}
+  .logo{font-size:56px;line-height:1}
+  h1{font-size:clamp(32px,5vw,52px);margin:14px 0 8px;letter-spacing:-.02em}
+  .tag{font-size:clamp(16px,2.4vw,20px);color:var(--muted);margin:0 auto;max-width:640px}
+  .badges{margin:22px 0 10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .badge{font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;
+    background:var(--panel);color:var(--muted)}
+  .cta{margin-top:26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;padding:12px 22px;border-radius:10px;font-weight:600}
+  .btn.primary{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff}
+  .btn.ghost{border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+  section{padding:40px 0;border-top:1px solid var(--line)}
+  h2{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+  .lead{color:var(--muted);margin:0 0 24px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h3{margin:0 0 6px;font-size:17px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
+  .num{display:inline-flex;width:30px;height:30px;border-radius:8px;align-items:center;justify-content:center;
+    background:color-mix(in srgb,var(--brand) 16%, transparent);color:var(--brand);font-weight:700;margin-bottom:10px}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:16px 18px;
+    overflow-x:auto;font-size:13.5px;line-height:1.55}
+  code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace}
+  .flow{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;
+    white-space:pre;overflow-x:auto;color:var(--muted);font-size:13px;
+    font-family:"SFMono-Regular",Consolas,monospace}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;font-size:14.5px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600}
+  tr:last-child td{border-bottom:0}
+  .pill{font-size:12px;color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent);
+    border-radius:999px;padding:2px 8px}
+  footer{padding:40px 0 60px;text-align:center;color:var(--muted);border-top:1px solid var(--line)}
+  .warn{background:color-mix(in srgb,#f59e0b 12%,transparent);border:1px solid color-mix(in srgb,#f59e0b 40%,transparent);
+    border-radius:12px;padding:14px 16px;color:var(--ink);font-size:14.5px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="logo">🔐</div>
+    <h1>CertForge</h1>
+    <p class="tag">Autoridade Certificadora que emite certificados de cliente para autenticar conexões com <b>Oracle Database</b> e <b>Azure SQL</b>. Sem o certificado, a conexão não acontece.</p>
+    <div class="badges">
+      <span class="badge">PowerShell 7.2+</span>
+      <span class="badge">OpenSSL 3.x</span>
+      <span class="badge">mTLS · Entra ID</span>
+      <span class="badge">Licença MIT</span>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/elevbit-ai/certforge">Ver no GitHub</a>
+      <a class="btn ghost" href="#instalacao">Instalação</a>
+    </div>
+  </div>
+</header>
+
+<section id="conceito">
+  <div class="wrap">
+    <h2>Como funciona</h2>
+    <p class="lead">O certificado é a metade <i>pública</i> de um par de chaves, assinada por uma autoridade em quem o servidor confia. Quem prova a identidade é a <b>chave privada</b>, que fica só com o cliente.</p>
+    <div class="flow">   CLIENTE                                 SERVIDOR (Oracle / Azure SQL)
+   1. "Quero conectar"        ─────────▶
+                              ◀─────────   2. "Me mostre um certificado
+                                              assinado por uma CA que eu confio"
+   3. Envia o certificado
+      + prova a chave privada ─────────▶
+                                          4. Verifica: assinado pela minha CA?
+                                             não revogado (CRL)? chave confere?
+                              ◀─────────   5. ✅ aceita   ou   ❌ recusa</div>
+    <p class="lead" style="margin-top:18px">Se o cliente não apresenta um certificado válido — ou tem o certificado mas não a chave privada — a conexão é <b>recusada no handshake TLS</b>, antes de chegar em usuário e senha.</p>
+  </div>
+</section>
+
+<section id="seguranca">
+  <div class="wrap">
+    <h2>Recursos de segurança diferenciados</h2>
+    <p class="lead">Boas práticas comprovadas combinadas num sistema coeso — sem reinventar criptografia.</p>
+    <div class="grid">
+      <div class="card"><div class="num">1</div><h3>Ledger à prova de adulteração</h3><p>Cada evento carrega o hash SHA-256 do anterior. Alterar o histórico quebra a cadeia inteira — e o sistema aponta a linha fraudada.</p></div>
+      <div class="card"><div class="num">2</div><h3>Chave selada ao TPM</h3><p>No Windows, a chave privada é importada como não-exportável e movida para o TPM 2.0. Nem um admin consegue copiá-la.</p></div>
+      <div class="card"><div class="num">3</div><h3>Menor privilégio</h3><p>Certificados saem com <code>EKU = clientAuth</code> apenas. Se vazarem, não forjam servidor, código ou e-mail.</p></div>
+      <div class="card"><div class="num">4</div><h3>Raiz offline</h3><p>A raiz assina só a intermediária (<code>pathlen:0</code>) e fica offline. O dia a dia usa a emissora, de curta duração.</p></div>
+      <div class="card"><div class="num">5</div><h3>Revogação com CRL</h3><p>Cada certificado embute o ponto de distribuição da CRL. Revogou? O servidor recusa na próxima leitura.</p></div>
+      <div class="card"><div class="num">6</div><h3>Chaves cifradas (AES-256)</h3><p>As chaves das CAs ficam cifradas em repouso, com validação de força da passphrase.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="requisitos">
+  <div class="wrap">
+    <h2>Requisitos</h2>
+    <table>
+      <tr><th>Requisito</th><th>Versão</th><th>Observação</th></tr>
+      <tr><td>PowerShell</td><td>7.2+</td><td>Windows, Linux ou macOS</td></tr>
+      <tr><td>OpenSSL</td><td>3.x</td><td>no <code>PATH</code></td></tr>
+      <tr><td>Oracle Client (orapki)</td><td>opcional</td><td>só para montar a Oracle Wallet</td></tr>
+      <tr><td>Azure CLI (az)</td><td>opcional</td><td>só para registrar o app no Entra ID</td></tr>
+      <tr><td>TPM 2.0</td><td>opcional</td><td>selagem de chave ao hardware (Windows)</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="instalacao">
+  <div class="wrap">
+    <h2>Instalação</h2>
+    <p class="lead">O instalador confere os requisitos, importa o módulo e roda um teste de ponta a ponta na sua máquina.</p>
+    <pre><code>git clone https://github.com/elevbit-ai/certforge.git
+cd certforge
+pwsh ./scripts/install.ps1</code></pre>
+  </div>
+</section>
+
+<section id="uso">
+  <div class="wrap">
+    <h2>Uso rápido</h2>
+    <p class="lead">1 · Criar a Autoridade Certificadora</p>
+    <pre><code>pwsh ./scripts/new-ca.ps1 -Store ./minha-pki</code></pre>
+    <div class="warn" style="margin:14px 0">⚠️ Ao final, mova <code>minha-pki/root-ca/private/root-ca.key.pem</code> para armazenamento <b>offline</b>. É a chave mais valiosa da sua PKI.</div>
+    <p class="lead">2 · Emitir para Oracle</p>
+    <pre><code>pwsh ./scripts/issue-client.ps1 -CommonName "svc-etl" -Upn "svc-etl@empresa.com" `
+    -Store ./minha-pki -Oracle -DbHost "db.empresa.com" -ServiceName "ORCLPDB1"</code></pre>
+    <p class="lead">3 · Emitir para Azure SQL</p>
+    <pre><code>pwsh ./scripts/issue-client.ps1 -CommonName "svc-bi" -Upn "svc-bi@empresa.com" `
+    -Store ./minha-pki -AzureSql -SqlServer "srv.database.windows.net" -Database "vendas"</code></pre>
+    <p class="lead">4 · Guardar a chave selada ao TPM (Windows)</p>
+    <pre><code>pwsh ./scripts/issue-client.ps1 -CommonName "svc-seguro" -Store ./minha-pki `
+    -ImportToWindows -BindToTpm</code></pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><span class="pill">1.0.0</span></p>
+    <p>Desenvolvido por <b>Joaquim Pedro de Morais Filho</b> · <code>j360074@hotmail.com</code></p>
+    <p>Licença MIT · <a href="https://github.com/elevbit-ai/certforge">github.com/elevbit-ai/certforge</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,21 @@
+# CertForge — nunca versionar material da CA nem chaves privadas!
+.certforge-store/
+*.key.pem
+*.p12
+*.pfx
+*.key
+private/
+ewallet*
+cwallet.sso
+ledger.jsonl
+
+# Saídas de emissão
+issued/
+minha-pki/
+*-store/
+
+# Temporários
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

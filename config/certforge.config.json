@@ -1,0 +1,40 @@
+{
+  "$schema": "./certforge.schema.json",
+  "organization": {
+    "country": "BR",
+    "state": "Ceara",
+    "org": "Elevbit",
+    "orgUnit": "CertForge PKI",
+    "rootCommonName": "CertForge Root CA",
+    "intermediateCommonName": "CertForge Issuing CA"
+  },
+  "keys": {
+    "rootAlgorithm": "RSA",
+    "rootBits": 4096,
+    "intermediateAlgorithm": "RSA",
+    "intermediateBits": 4096,
+    "clientAlgorithm": "RSA",
+    "clientBits": 3072,
+    "digest": "sha384"
+  },
+  "validity": {
+    "rootDays": 3650,
+    "intermediateDays": 1825,
+    "clientDays": 90,
+    "crlDays": 30
+  },
+  "revocation": {
+    "crlDistributionUri": "http://pki.local/certforge/intermediate.crl.pem"
+  },
+  "security": {
+    "encryptPrivateKeys": true,
+    "keyEncryptionCipher": "aes-256-cbc",
+    "windowsNonExportable": true,
+    "bindToTpm": false,
+    "enforceLedger": true,
+    "minPassphraseLength": 16
+  },
+  "paths": {
+    "storeRoot": "./.certforge-store"
+  }
+}

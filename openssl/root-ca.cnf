@@ -1,0 +1,79 @@
+# =====================================================================
+#  CertForge — Configuração da Autoridade Certificadora RAIZ (offline)
+#  Autor: Joaquim Pedro de Morais Filho <j360074@hotmail.com>
+#
+#  A CA Raiz assina APENAS a CA Intermediária. A chave privada da raiz
+#  deve ser mantida offline após a criação da hierarquia.
+#  O diretório da raiz é resolvido em tempo de execução via $ENV::CERTFORGE_ROOT_DIR.
+# =====================================================================
+
+[ default ]
+ca                      = root-ca
+
+[ ca ]
+default_ca              = CA_default
+
+[ CA_default ]
+dir                     = $ENV::CERTFORGE_ROOT_DIR
+certs                   = $dir/certs
+crl_dir                 = $dir/crl
+new_certs_dir           = $dir/newcerts
+database                = $dir/index.txt
+serial                  = $dir/serial
+RANDFILE                = $dir/private/.rand
+
+private_key             = $dir/private/root-ca.key.pem
+certificate             = $dir/certs/root-ca.cert.pem
+
+crlnumber               = $dir/crlnumber
+crl                     = $dir/crl/root-ca.crl.pem
+crl_extensions          = crl_ext
+default_crl_days        = 180
+
+default_md              = sha384
+name_opt                = ca_default
+cert_opt                = ca_default
+default_days            = 3650
+preserve                = no
+policy                  = policy_strict
+
+# A raiz só emite para DNs cujos campos de organização coincidem.
+[ policy_strict ]
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+default_bits            = 4096
+distinguished_name      = req_distinguished_name
+string_mask             = utf8only
+default_md              = sha384
+prompt                  = no
+x509_extensions         = v3_ca
+
+[ req_distinguished_name ]
+countryName             = $ENV::CERTFORGE_COUNTRY
+stateOrProvinceName     = $ENV::CERTFORGE_STATE
+organizationName        = $ENV::CERTFORGE_ORG
+organizationalUnitName  = $ENV::CERTFORGE_OU
+commonName              = $ENV::CERTFORGE_ROOT_CN
+
+# Extensões do próprio certificado raiz (auto-assinado).
+[ v3_ca ]
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always,issuer
+basicConstraints        = critical, CA:true
+keyUsage                = critical, digitalSignature, cRLSign, keyCertSign
+
+# Extensões aplicadas ao assinar a CA Intermediária.
+[ v3_intermediate_ca ]
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always,issuer
+basicConstraints        = critical, CA:true, pathlen:0
+keyUsage                = critical, digitalSignature, cRLSign, keyCertSign
+
+[ crl_ext ]
+authorityKeyIdentifier  = keyid:always
